@@ -100,12 +100,13 @@ func topHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil && err != sql.ErrNoRows {
 		panicIf(err)
 	}
+	reg := makeReg()
 	entries := make([]*Entry, 0, 10)
 	for rows.Next() {
 		e := Entry{}
 		err := rows.Scan(&e.ID, &e.AuthorID, &e.Keyword, &e.Description, &e.UpdatedAt, &e.CreatedAt)
 		panicIf(err)
-		e.Html = htmlify(w, r, e.Description)
+		e.Html = htmlify(w, r, e.Description, reg)
 		e.Stars = loadStars(e.Keyword)
 		entries = append(entries, &e)
 	}
@@ -262,7 +263,8 @@ func keywordByKeywordHandler(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
-	e.Html = htmlify(w, r, e.Description)
+	reg := makeReg()
+	e.Html = htmlify(w, r, e.Description, reg)
 	e.Stars = loadStars(e.Keyword)
 
 	re.HTML(w, http.StatusOK, "keyword", struct {
@@ -304,10 +306,7 @@ func keywordByKeywordDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func htmlify(w http.ResponseWriter, r *http.Request, content string) string {
-	if content == "" {
-		return ""
-	}
+func makeReg() *regexp.Regexp {
 	rows, err := db.Query(`
 		SELECT keyword FROM entry ORDER BY CHARACTER_LENGTH(keyword) DESC
 	`)
@@ -326,6 +325,13 @@ func htmlify(w http.ResponseWriter, r *http.Request, content string) string {
 		keywords = append(keywords, regexp.QuoteMeta(*entry))
 	}
 	re := regexp.MustCompile("(" + strings.Join(keywords, "|") + ")")
+	return re
+}
+
+func htmlify(w http.ResponseWriter, r *http.Request, content string, re *regexp.Regexp) string {
+	if content == "" {
+		return ""
+	}
 	kw2sha := make(map[string]string)
 	content = re.ReplaceAllStringFunc(content, func(kw string) string {
 		kw2sha[kw] = "isuda_" + fmt.Sprintf("%x", sha1.Sum([]byte(kw)))
