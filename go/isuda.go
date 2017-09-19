@@ -12,7 +12,7 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"net/http/pprof"
+	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"regexp"
