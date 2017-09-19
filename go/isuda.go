@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"runtime"
 
 	"github.com/Songmu/strrand"
 	_ "github.com/go-sql-driver/mysql"
