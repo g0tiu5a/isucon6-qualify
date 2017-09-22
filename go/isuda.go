@@ -15,7 +15,6 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -101,13 +100,13 @@ func topHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil && err != sql.ErrNoRows {
 		panicIf(err)
 	}
-	reg := makeReg()
+	toHash, toLink := makeReplacer(r)
 	entries := make([]*Entry, 0, 10)
 	for rows.Next() {
 		e := Entry{}
 		err := rows.Scan(&e.ID, &e.AuthorID, &e.Keyword, &e.Description, &e.UpdatedAt, &e.CreatedAt)
 		panicIf(err)
-		e.Html = htmlify(w, r, e.Description, reg)
+		e.Html = htmlify(w, r, e.Description, toHash, toLink)
 		e.Stars = loadStars(e.Keyword)
 		entries = append(entries, &e)
 	}
@@ -265,8 +264,8 @@ func keywordByKeywordHandler(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
-	reg := makeReg()
-	e.Html = htmlify(w, r, e.Description, reg)
+	toHash, toLink := makeReplacer(r)
+	e.Html = htmlify(w, r, e.Description, toHash, toLink)
 	e.Stars = loadStars(e.Keyword)
 
 	re.HTML(w, http.StatusOK, "keyword", struct {
@@ -309,44 +308,42 @@ func keywordByKeywordDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func makeReg() *regexp.Regexp {
+func makeReplacer(r *http.Request) (toHash *strings.Replacer, toLink *strings.Replacer) {
 	rows, err := db.Query(`
 		SELECT keyword FROM entry ORDER BY CHARACTER_LENGTH(keyword) DESC
 	`)
 	panicIf(err)
-	entries := make([]*string, 0, 500)
+	hashSlice := make([]string, 0, 14000)
+	linkSlice := make([]string, 0, 14000)
 	for rows.Next() {
 		var e string
 		err := rows.Scan(&e)
 		panicIf(err)
-		entries = append(entries, &e)
+
+		hash := "isuda_" + fmt.Sprintf("%x", sha1.Sum([]byte(e)))
+		u, err := r.URL.Parse(baseUrl.String() + "/keyword/" + pathURIEscape(e))
+		panicIf(err)
+		link := fmt.Sprintf("<a href=\"%s\">%s</a>", u, html.EscapeString(e))
+
+		hashSlice = append(hashSlice, e)
+		hashSlice = append(hashSlice, hash)
+		linkSlice = append(linkSlice, hash)
+		linkSlice = append(linkSlice, link)
 	}
 	rows.Close()
 
-	keywords := make([]string, 0, 500)
-	for _, entry := range entries {
-		keywords = append(keywords, regexp.QuoteMeta(*entry))
-	}
-	re := regexp.MustCompile("(" + strings.Join(keywords, "|") + ")")
-	return re
+	toHash = strings.NewReplacer(hashSlice...)
+	toLink = strings.NewReplacer(linkSlice...)
+	return
 }
 
-func htmlify(w http.ResponseWriter, r *http.Request, content string, re *regexp.Regexp) string {
+func htmlify(w http.ResponseWriter, r *http.Request, content string, toHash *strings.Replacer, toLink *strings.Replacer) string {
 	if content == "" {
 		return ""
 	}
-	kw2sha := make(map[string]string)
-	content = re.ReplaceAllStringFunc(content, func(kw string) string {
-		kw2sha[kw] = "isuda_" + fmt.Sprintf("%x", sha1.Sum([]byte(kw)))
-		return kw2sha[kw]
-	})
+	content = toHash.Replace(content)
 	content = html.EscapeString(content)
-	for kw, hash := range kw2sha {
-		u, err := r.URL.Parse(baseUrl.String() + "/keyword/" + pathURIEscape(kw))
-		panicIf(err)
-		link := fmt.Sprintf("<a href=\"%s\">%s</a>", u, html.EscapeString(kw))
-		content = strings.Replace(content, hash, link, -1)
-	}
+	content = toLink.Replace(content)
 	return strings.Replace(content, "\n", "<br />\n", -1)
 }
 
