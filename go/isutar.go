@@ -55,7 +55,7 @@ func starsPostHandler(w http.ResponseWriter, r *http.Request) {
 	if origin == "" {
 		origin = "http://localhost:5000"
 	}
-	u, err := r.URL.Parse(fmt.Sprintf("%s/keyword/%s", origin, pathURIEscape(keyword)))
+	u, err := r.URL.Parse(fmt.Sprintf("%s/exist/%s", origin, pathURIEscape(keyword)))
 	panicIf(err)
 	resp, err := http.Get(u.String())
 	panicIf(err)

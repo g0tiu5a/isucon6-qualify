@@ -308,6 +308,23 @@ func keywordByKeywordDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+func existHandler(w http.ResponseWriter, r *http.Request) {
+	keyword := mux.Vars(r)["keyword"]
+	keyword, _ = url.QueryUnescape(keyword)
+	if keyword == "" {
+		badRequest(w)
+		return
+	}
+	row := db.QueryRow(`SELECT EXISTS(SELECT * FROM entry WHERE keyword = ?)`, keyword)
+	var exist bool
+	err := row.Scan(&exist)
+	if err == sql.ErrNoRows || !exist {
+		notFound(w)
+		return
+	}
+	return
+}
+
 func makeReplacer(r *http.Request) (toHash *strings.Replacer, toLink *strings.Replacer) {
 	rows, err := db.Query(`
 		SELECT keyword FROM entry ORDER BY CHARACTER_LENGTH(keyword) DESC
@@ -480,6 +497,8 @@ func main() {
 	k := r.PathPrefix("/keyword/{keyword}").Subrouter()
 	k.Methods("GET").HandlerFunc(myHandler(keywordByKeywordHandler))
 	k.Methods("POST").HandlerFunc(myHandler(keywordByKeywordDeleteHandler))
+
+	r.HandleFunc("/exist/{keyword}", myHandler(existHandler)).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
 
