@@ -12,7 +12,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	_ "net/http/pprof"
 	"net/url"
 	"os"
 	"strconv"
@@ -499,10 +498,6 @@ func main() {
 	r.HandleFunc("/exist/{keyword}", myHandler(existHandler)).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
-
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	log.Fatal(http.ListenAndServe(":5000", r))
 }
