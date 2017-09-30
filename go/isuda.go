@@ -342,10 +342,8 @@ func makeReplacer(r *http.Request) (toHash *strings.Replacer, toLink *strings.Re
 		k := html.EscapeString(e)
 		link := fmt.Sprintf("<a href=\"%s\">%s</a>", u, k)
 
-		hashSlice = append(hashSlice, e)
-		hashSlice = append(hashSlice, hash)
-		linkSlice = append(linkSlice, hash)
-		linkSlice = append(linkSlice, link)
+		hashSlice = append(hashSlice, e, hash)
+		linkSlice = append(linkSlice, hash, link)
 	}
 	rows.Close()
 
