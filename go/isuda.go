@@ -338,9 +338,9 @@ func makeReplacer(r *http.Request) (toHash *strings.Replacer, toLink *strings.Re
 		panicIf(err)
 
 		hash := "isuda_" + fmt.Sprintf("%x", sha1.Sum([]byte(e)))
-		u, err := r.URL.Parse(baseUrl.String() + "/keyword/" + pathURIEscape(e))
-		panicIf(err)
-		link := fmt.Sprintf("<a href=\"%s\">%s</a>", u, html.EscapeString(e))
+		u := baseUrl.String() + "/keyword/" + pathURIEscape(e)
+		k := html.EscapeString(e)
+		link := fmt.Sprintf("<a href=\"%s\">%s</a>", u, k)
 
 		hashSlice = append(hashSlice, e)
 		hashSlice = append(hashSlice, hash)
